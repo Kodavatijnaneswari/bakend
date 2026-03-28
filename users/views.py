@@ -70,27 +70,32 @@ def training(request):
     return render(request, 'users/training.html', {"training_data": training_data})
 
 # -------- YOLO MODEL LOAD --------
-# Primary: media/YOLOv8x-best.pt (commonly used in this project)
-# Fallback: yolov8s.pt (base model in root) or yolov8n.pt
-MODEL_PATH = os.path.join(settings.BASE_DIR, 'media', 'YOLOv8x-best.pt')
-FALLBACK_PATH = os.path.join(settings.BASE_DIR, 'yolov8s.pt')
-ROOT_NANO_PATH = os.path.join(settings.BASE_DIR, 'yolov8n.pt')
+_model = None
 
-if not os.path.exists(MODEL_PATH):
-    if os.path.exists(FALLBACK_PATH):
-        MODEL_PATH = FALLBACK_PATH
-    elif os.path.exists(ROOT_NANO_PATH):
-        MODEL_PATH = ROOT_NANO_PATH
+def get_model():
+    global _model
+    if _model is not None:
+        return _model
+        
+    MODEL_PATH = os.path.join(settings.BASE_DIR, 'media', 'YOLOv8x-best.pt')
+    FALLBACK_PATH = os.path.join(settings.BASE_DIR, 'yolov8s.pt')
+    ROOT_NANO_PATH = os.path.join(settings.BASE_DIR, 'yolov8n.pt')
 
-try:
-    if os.path.exists(MODEL_PATH):
-        model = YOLO(MODEL_PATH)
-    else:
-        print(f"Engine Load Warning: No model file found at {MODEL_PATH}")
-        model = None
-except Exception as e:
-    print(f"Engine Load Warning: {e}")
-    model = None
+    if not os.path.exists(MODEL_PATH):
+        if os.path.exists(FALLBACK_PATH):
+            MODEL_PATH = FALLBACK_PATH
+        elif os.path.exists(ROOT_NANO_PATH):
+            MODEL_PATH = ROOT_NANO_PATH
+
+    try:
+        if os.path.exists(MODEL_PATH):
+            _model = YOLO(MODEL_PATH)
+            return _model
+        else:
+            print(f"Engine Load Warning: No model file found at {MODEL_PATH}")
+    except Exception as e:
+        print(f"Engine Load Warning: {e}")
+    return None
 
 # -------- IMAGE UPLOAD AND DETECTION --------
 def upload_image(request):
@@ -100,6 +105,7 @@ def upload_image(request):
         image_full_path = os.path.join(settings.MEDIA_ROOT, image_path)
 
         try:
+            model = get_model()
             img = cv2.imread(image_full_path)
             if img is None:
                 return render(request, "users/result.html", {"error_message": "Invalid image format."})

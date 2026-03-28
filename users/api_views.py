@@ -12,11 +12,21 @@ import cv2
 import numpy as np
 
 # Load model once at module level
-MODEL_PATH = os.path.join(settings.BASE_DIR, 'runs/detect/optimized_bone_model/weights/best.pt')
-try:
-    model = YOLO(MODEL_PATH)
-except:
-    model = None
+_model = None
+
+def get_model():
+    global _model
+    if _model is not None:
+        return _model
+        
+    MODEL_PATH = os.path.join(settings.BASE_DIR, 'runs/detect/optimized_bone_model/weights/best.pt')
+    try:
+        if os.path.exists(MODEL_PATH):
+            _model = YOLO(MODEL_PATH)
+            return _model
+    except:
+        pass
+    return None
 
 class DetectionAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -28,6 +38,7 @@ class DetectionAPIView(APIView):
         image_full_path = os.path.join(settings.MEDIA_ROOT, image_path)
 
         try:
+            model = get_model()
             img = cv2.imread(image_full_path)
             if img is None:
                 return Response({"error": "Invalid image format"}, status=status.HTTP_400_BAD_REQUEST)
