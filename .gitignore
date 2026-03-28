@@ -26,7 +26,7 @@ db.sqlite3
 media/
 local_settings.py
 staticfiles/
-**/migrations/*.py
+# **/migrations/*.py
 !**/migrations/__init__.py
 
 # ML / YOLO
