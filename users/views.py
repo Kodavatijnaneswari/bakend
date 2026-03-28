@@ -97,6 +97,8 @@ def upload_image(request):
         image_full_path = os.path.join(settings.MEDIA_ROOT, image_path)
 
         try:
+            import cv2
+            import numpy as np
             model = get_model()
             img_original = cv2.imread(image_full_path)
             if img_original is None:
