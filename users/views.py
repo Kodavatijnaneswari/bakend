@@ -106,14 +106,25 @@ def upload_image(request):
 
         try:
             model = get_model()
-            img = cv2.imread(image_full_path)
-            if img is None:
+            img_original = cv2.imread(image_full_path)
+            if img_original is None:
                 return render(request, "users/result.html", {"error_message": "Invalid image format."})
+            
+            # --- MEMORY OPTIMIZATION: SCALE IMAGE FOR SCANNING (Max 640px) ---
+            MAX_PROC_DIM = 640
+            h_orig, w_orig = img_original.shape[:2]
+            scale_ratio = 1.0
+            if max(h_orig, w_orig) > MAX_PROC_DIM:
+                scale_ratio = MAX_PROC_DIM / max(h_orig, w_orig)
+                img = cv2.resize(img_original, (int(w_orig * scale_ratio), int(h_orig * scale_ratio)))
+            else:
+                img = img_original.copy()
 
             b, g, r = cv2.split(img)
             mean_diff = (np.mean(cv2.absdiff(r, g)) + np.mean(cv2.absdiff(r, b)) + np.mean(cv2.absdiff(g, b))) / 3.0
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             hist = cv2.calcHist([gray], [0], None, [256], [0,256])
+            
             is_perfectly_gray = mean_diff < 5.0
             is_mostly_gray = mean_diff < 20.0
             background_ratio = np.sum(hist[:30]) / np.sum(hist)
@@ -128,13 +139,14 @@ def upload_image(request):
                 
             if not is_valid_xray:
                 return render(request, "users/result.html", {
-                    "error_message": "Non-X-ray image detected. Please upload an original grayscale medical X-ray for accurate AI analysis."
+                    "error_message": "Non-X-ray image detected. Please upload an original medical radiograph for AI analysis."
                 })
 
             if model is None:
                 return render(request, "users/result.html", {"error_message": "AI Diagnostic Engine not initialized."})
 
-            results = model.predict(source=image_full_path, save=False, conf=0.25)
+            # --- AI INFERENCE (on scaled image) ---
+            results = model.predict(source=img, save=False, conf=0.25)
             boxes = results[0].boxes
 
             fracture_boxes = [box for box in boxes if int(box.cls[0]) in [0, 1, 2, 3, 4, 5, 6]]
@@ -166,41 +178,47 @@ def upload_image(request):
             best_box = fracture_boxes[0]
             stage = "Abnormal"
             
+            h_proc, w_proc = img.shape[:2]
+            Y, X = np.ogrid[:h_proc, :w_proc]
+
             for box in fracture_boxes:
+                # Box coordinates are in processed (scaled) image space
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cls_id = int(box.cls[0])
                 conf = float(box.conf[0])
                 box_w, box_h = x2 - x1, y2 - y1
-                area_ratio = (box_w * box_h) / (img.shape[0] * img.shape[1])
+                area_ratio = (box_w * box_h) / (h_proc * w_proc)
                 aspect_ratio = max(box_w, box_h) / (min(box_w, box_h) + 1e-6)
 
+                # Detection stage classification
+                current_stage = "Abnormality Detected"
                 if (cls_id in [0, 5, 6] and area_ratio > 0.04) or (aspect_ratio > 4.5):
                      current_stage = "Dislocated Fracture / Major Displacement"
                 elif area_ratio > 0.06 or aspect_ratio > 3.0:
                      current_stage = "Complete Transverse Fracture"
-                elif area_ratio < 0.008 or conf < 0.08:
-                     current_stage = "Incomplete / Hairline Fracture (Suspected)"
-                else:
-                     current_stage = "Fracture Abnormality Detected"
-
+                elif area_ratio < 0.008 or conf < 0.12:
+                     current_stage = "Possible Hairline Fracture (Minor Abnormality)"
+                
                 if conf == float(best_box.conf[0]):
                     stage = current_stage
                     if cls_id == 6: stage = f"Wrist {current_stage}"
                     if cls_id == 0: stage = f"Elbow {current_stage}"
 
+                # --- LOCALIZED HIGHLIGHT (Tighter Sigma) ---
                 cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-                sigma = max(box_w / 3.0, box_h / 3.0, 5.0)
-                Y, X = np.ogrid[:img.shape[0], :img.shape[1]]
-                gauss = np.exp(-((X - cx)**2 + (Y - cy)**2) / (2 * sigma**2))
-                heatmap = np.maximum(heatmap, gauss)
-                cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), 3)
+                sigma = min(box_w, box_h) / 2.0  # Tighter spread
+                highlight = np.exp(-((X - cx)**2 + (Y - cy)**2) / (2 * sigma**2))
+                heatmap = np.maximum(heatmap, highlight)
+                
+                # Visual box and label (on processed image)
+                cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), 2)
                 label = f"{model.names[cls_id]} {conf:.2f}"
-                cv2.putText(overlay, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(overlay, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
             heatmap = np.uint8(255 * heatmap)
             heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-            alpha, mask = 0.4, heatmap > 20
-            overlay[mask] = cv2.addWeighted(img, 1 - alpha, heatmap_color, alpha, 0)[mask]
+            alpha, mask = 0.5, heatmap > 30 # Tighter mask (30 instead of 20)
+            overlay[mask] = cv2.addWeighted(img[mask], 1 - alpha, heatmap_color[mask], alpha, 0)
 
             output_filename = "detected_" + uploaded_image.name
             output_path = os.path.join(settings.MEDIA_ROOT, 'uploads', output_filename)
