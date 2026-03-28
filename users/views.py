@@ -8,7 +8,6 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.contrib import messages
-from ultralytics import YOLO
 from admins.models import modeldata
 from .models import DiagnosticResult
 
@@ -89,6 +88,7 @@ def get_model():
 
     try:
         if os.path.exists(MODEL_PATH):
+            from ultralytics import YOLO
             _model = YOLO(MODEL_PATH)
             return _model
         else:
