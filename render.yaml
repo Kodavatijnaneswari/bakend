@@ -3,7 +3,7 @@ services:
     name: bone-abnormality-detection
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn Bone_Abnormality_Detection.wsgi:application --bind 0.0.0.0:10000 --timeout 120"
+    startCommand: "gunicorn Bone_Abnormality_Detection.wsgi:application --bind 0.0.0.0:$PORT --timeout 120"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0

@@ -1,17 +1,18 @@
-"""
-ASGI config for Bone_Abnormality_Detection project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/4.2/howto/deployment/asgi/
-"""
-
 import os
+import sys
+import logging
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Bone_Abnormality_Detection.settings')
-os.environ['DJANGO_SETTINGS_MODULE'] = 'Bone_Abnormality_Detection.settings'
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-from django.core.asgi import get_asgi_application
+try:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Bone_Abnormality_Detection.settings')
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'Bone_Abnormality_Detection.settings'
 
-application = get_asgi_application()
+    from django.core.asgi import get_asgi_application
+    application = get_asgi_application()
+    logger.info("ASGI application loaded successfully.")
+except Exception as e:
+    logger.error(f"CRITICAL ERROR during ASGI loading: {e}")
+    print(f"CRITICAL ERROR: {e}", file=sys.stderr)
+    raise
