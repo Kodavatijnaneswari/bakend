@@ -134,11 +134,8 @@ def upload_image(request):
             if model is None:
                 return render(request, "users/result.html", {"error_message": "AI Diagnostic Engine not initialized."})
 
-            results = model.predict(source=image_full_path, save=False, conf=0.10)
+            results = model.predict(source=image_full_path, save=False, conf=0.25)
             boxes = results[0].boxes
-            if not boxes:
-                results = model.predict(source=image_full_path, save=False, conf=0.03)
-                boxes = results[0].boxes
 
             fracture_boxes = [box for box in boxes if int(box.cls[0]) in [0, 1, 2, 3, 4, 5, 6]]
 
