@@ -130,29 +130,35 @@ def upload_image(request):
             else:
                 is_valid_xray = False
                 
-            if not is_valid_xray:
-                return render(request, "users/result.html", {
-                    "error_message": "Non-X-ray image detected. Please upload an original medical radiograph for AI analysis."
-                })
 
             if model is None:
                 return render(request, "users/result.html", {"error_message": "AI Diagnostic Engine not initialized."})
 
-            # --- AI INFERENCE (Optimized for Memory Stability) ---
-            # augment=True is disabled to prevent OOM (SIGKILL) on Render free tier
+            # --- 'PERFECT' AI INFERENCE (Optimized for Memory Stability) ---
+            import gc
+            gc.collect() # Force memory cleanup before heavy AI task
+            
             try:
-                results = model.predict(source=img, save=False, conf=0.25)
+                results = model.predict(source=img, save=False, conf=0.15) # Lowered base conf for initial scan
                 boxes = results[0].boxes
             except Exception as e:
                 print(f"INFERENCE CRASH: {e}")
                 return render(request, "users/result.html", {
-                    "error_message": "The AI engine encountered a memory limit while processing your image. Please try a smaller file or refresh and try again.",
+                    "error_message": "The AI engine encountered a memory limit. Please try again with a smaller file.",
                     "detailed_info": str(e)
                 })
             
             # --- DYNAMIC CATEGORIZATION ---
-            # Use all classes defined in the model (e.g. if the user has 10 classes in best.pt)
             fracture_boxes = [box for box in boxes if int(box.cls[0]) in model.names.keys()]
+            
+            # --- INTELLIGENT BYPASS ---
+            # If the AI is very sure (> 50%) it found something, we trust it even if the X-ray check is strict
+            high_conf_exists = any(float(box.conf[0]) > 0.5 for box in fracture_boxes)
+
+            if not is_valid_xray and not high_conf_exists:
+                return render(request, "users/result.html", {
+                    "error_message": "Image format warning: The system expects a standard medical radiograph (X-ray). Please ensure the image is a clear, original grayscale scan."
+                })
 
             if not fracture_boxes:
                 # Save Normal Result
