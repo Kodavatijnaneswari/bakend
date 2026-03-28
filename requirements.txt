@@ -8,8 +8,8 @@ django-pandas==0.6.7
 
 # AI / ML / Computer Vision
 ultralytics>=8.2.0
-torch>=2.0.0
-torchvision>=0.15.0
+# torch>=2.0.0
+# torchvision>=0.15.0
 opencv-python-headless>=4.8.0
 pillow>=10.0.0
 numpy>=1.23.5
