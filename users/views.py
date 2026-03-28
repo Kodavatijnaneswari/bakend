@@ -120,14 +120,13 @@ def upload_image(request):
             hist = cv2.calcHist([gray], [0], None, [256], [0,256])
             
             is_perfectly_gray = mean_diff < 5.0
-            is_mostly_gray = mean_diff < 20.0
+            is_mostly_gray = mean_diff < 40.0 # Increased from 20 to allow red arrows/annotations
             background_ratio = np.sum(hist[:30]) / np.sum(hist)
             bone_peak_ratio = np.sum(hist[140:]) / np.sum(hist)
             
-            if is_perfectly_gray:
-                is_valid_xray = True
-            elif is_mostly_gray:
-                is_valid_xray = (background_ratio > 0.02) or (bone_peak_ratio > 0.0001)
+            if is_mostly_gray:
+                # Even with color annotations, it should have X-ray like histogram characteristics
+                is_valid_xray = (background_ratio > 0.01) or (bone_peak_ratio > 0.0001)
             else:
                 is_valid_xray = False
                 
