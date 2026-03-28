@@ -31,7 +31,9 @@ staticfiles/
 
 # ML / YOLO
 runs/
-# *.pt  <-- Commented out to include model weights for deployment
+!yolov8n.pt
+!yolov8s.pt
+!media/YOLOv8x-best.pt
 datasets/
 *.log
 
