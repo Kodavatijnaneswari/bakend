@@ -69,33 +69,25 @@ def training(request):
     return render(request, 'users/training.html', {"training_data": training_data})
 
 # -------- YOLO MODEL LOAD --------
-_model = None
+_yolo_model = None
 
 def get_model():
-    global _model
-    if _model is not None:
-        return _model
-        
-    MODEL_PATH = os.path.join(settings.BASE_DIR, 'media', 'YOLOv8x-best.pt')
-    FALLBACK_PATH = os.path.join(settings.BASE_DIR, 'yolov8s.pt')
-    ROOT_NANO_PATH = os.path.join(settings.BASE_DIR, 'yolov8n.pt')
-
-    if not os.path.exists(MODEL_PATH):
-        if os.path.exists(FALLBACK_PATH):
-            MODEL_PATH = FALLBACK_PATH
-        elif os.path.exists(ROOT_NANO_PATH):
-            MODEL_PATH = ROOT_NANO_PATH
-
-    try:
-        if os.path.exists(MODEL_PATH):
+    global _yolo_model
+    if _yolo_model is None:
+        try:
+            # --- PRIORITIZE CUSTOM DATASET MODELS ---
+            custom_model = os.path.join(settings.MEDIA_ROOT, "best.pt")
+            fallback_model = os.path.join(settings.MEDIA_ROOT, "yolov8s.pt")
+            
+            model_path = custom_model if os.path.exists(custom_model) else fallback_model
+            
             from ultralytics import YOLO
-            _model = YOLO(MODEL_PATH)
-            return _model
-        else:
-            print(f"Engine Load Warning: No model file found at {MODEL_PATH}")
-    except Exception as e:
-        print(f"Engine Load Warning: {e}")
-    return None
+            _yolo_model = YOLO(model_path)
+            print(f"DIAGNOSTIC ENGINE: Loaded model from {model_path}")
+        except Exception as e:
+            print(f"CRITICAL: Failed to load AI Model: {e}")
+            _yolo_model = None
+    return _yolo_model
 
 # -------- IMAGE UPLOAD AND DETECTION --------
 def upload_image(request):
@@ -145,11 +137,14 @@ def upload_image(request):
             if model is None:
                 return render(request, "users/result.html", {"error_message": "AI Diagnostic Engine not initialized."})
 
-            # --- AI INFERENCE (on scaled image) ---
-            results = model.predict(source=img, save=False, conf=0.25)
+            # --- 'PERFECT' AI INFERENCE (Augmented for Clinical Accuracy) ---
+            # Enabling augment=True (TTA) to catch subtle fractures in the dataset
+            results = model.predict(source=img, save=False, conf=0.25, augment=True)
             boxes = results[0].boxes
-
-            fracture_boxes = [box for box in boxes if int(box.cls[0]) in [0, 1, 2, 3, 4, 5, 6]]
+            
+            # --- DYNAMIC CATEGORIZATION ---
+            # Use all classes defined in the model (e.g. if the user has 10 classes in best.pt)
+            fracture_boxes = [box for box in boxes if int(box.cls[0]) in model.names.keys()]
 
             if not fracture_boxes:
                 # Save Normal Result

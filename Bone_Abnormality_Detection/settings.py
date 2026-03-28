@@ -24,11 +24,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-cwbb9$9e*@nzmpjv5o5%7g-=310w=qht+-t8#e1f&+=icb98+m')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('RENDER_EXTERNAL_HOSTNAME') is None
 
 ALLOWED_HOSTS = ['*']
 if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
     ALLOWED_HOSTS.append(os.environ.get('RENDER_EXTERNAL_HOSTNAME'))
+# Explicitly add the user's domain
+ALLOWED_HOSTS.append('bakend-icob.onrender.com')
 
 
 # Application definition
