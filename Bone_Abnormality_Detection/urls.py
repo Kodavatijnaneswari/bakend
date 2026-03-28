@@ -33,6 +33,7 @@ urlpatterns = [
 
     path('register/', views.register, name='register'),
     path('view/', views.view, name='view'),
+    path('viewusers/', views.view, name='viewusers'),
     path('activate/<int:id>', views.activate, name='activate'),
     path('block1/<int:id>', views.block, name='block1'),
     path('adminhome/', views.adminhome, name='adminhome'),
