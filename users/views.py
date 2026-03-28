@@ -187,17 +187,21 @@ def upload_image(request):
 
                 # Detection stage classification
                 current_stage = "Abnormality Detected"
-                if (cls_id in [0, 5, 6] and area_ratio > 0.04) or (aspect_ratio > 4.5):
-                     current_stage = "Dislocated Fracture / Major Displacement"
-                elif area_ratio > 0.06 or aspect_ratio > 3.0:
-                     current_stage = "Complete Transverse Fracture"
-                elif area_ratio < 0.008 or conf < 0.12:
-                     current_stage = "Possible Hairline Fracture (Minor Abnormality)"
+                # --- DYNAMIC STAGE CLASSIFICATION ---
+                # Pull the actual clinical name from the model's dataset
+                class_name = model.names[cls_id]
+                current_stage = f"{class_name} Detected"
                 
+                # Intelligent sizing based on detection area
+                if area_ratio > 0.04 or aspect_ratio > 4.5:
+                     current_stage = f"Major {class_name} / Displacement"
+                elif area_ratio > 0.06:
+                     current_stage = f"Complete {class_name} Fracture"
+                elif area_ratio < 0.008:
+                     current_stage = f"Suspected Hairline {class_name}"
+
                 if conf == float(best_box.conf[0]):
                     stage = current_stage
-                    if cls_id == 6: stage = f"Wrist {current_stage}"
-                    if cls_id == 0: stage = f"Elbow {current_stage}"
 
                 # --- LOCALIZED HIGHLIGHT (Tighter Sigma) ---
                 cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
