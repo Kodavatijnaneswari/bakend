@@ -139,10 +139,17 @@ def upload_image(request):
             if model is None:
                 return render(request, "users/result.html", {"error_message": "AI Diagnostic Engine not initialized."})
 
-            # --- 'PERFECT' AI INFERENCE (Augmented for Clinical Accuracy) ---
-            # Enabling augment=True (TTA) to catch subtle fractures in the dataset
-            results = model.predict(source=img, save=False, conf=0.25, augment=True)
-            boxes = results[0].boxes
+            # --- AI INFERENCE (Optimized for Memory Stability) ---
+            # augment=True is disabled to prevent OOM (SIGKILL) on Render free tier
+            try:
+                results = model.predict(source=img, save=False, conf=0.25)
+                boxes = results[0].boxes
+            except Exception as e:
+                print(f"INFERENCE CRASH: {e}")
+                return render(request, "users/result.html", {
+                    "error_message": "The AI engine encountered a memory limit while processing your image. Please try a smaller file or refresh and try again.",
+                    "detailed_info": str(e)
+                })
             
             # --- DYNAMIC CATEGORIZATION ---
             # Use all classes defined in the model (e.g. if the user has 10 classes in best.pt)
